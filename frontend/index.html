@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EHS Safety Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900">
+  <!-- API URL Banner -->
+  <div id="api-banner" class="bg-yellow-300 text-black p-2 text-center">
+    Set API URL: <input id="api-url" type="text" value="http://127.0.0.1:8000" class="border p-1">
+    <button onclick="saveApiUrl()" class="bg-black text-white px-2 py-1 rounded">Save</button>
+  </div>
+
+  <!-- Login -->
+  <div id="login-section" class="max-w-md mx-auto mt-10 bg-white p-6 rounded shadow">
+    <h1 class="text-2xl font-bold mb-4">Login</h1>
+    <input id="login-email" type="text" placeholder="Email" class="border p-2 w-full mb-2" />
+    <input id="login-password" type="password" placeholder="Password" class="border p-2 w-full mb-2" />
+    <button onclick="login()" class="bg-blue-600 text-white px-4 py-2 rounded">Login</button>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="hidden p-6">
+    <h2 class="text-2xl font-bold mb-4">Dashboard</h2>
+    <div class="grid grid-cols-2 gap-4">
+      <button onclick="loadIncidents()" class="bg-green-500 text-white p-4 rounded">Incidents</button>
+      <button onclick="loadActions()" class="bg-purple-500 text-white p-4 rounded">Actions</button>
+      <button onclick="downloadReport('csv')" class="bg-gray-700 text-white p-4 rounded">Download CSV</button>
+      <button onclick="downloadReport('xlsx')" class="bg-gray-700 text-white p-4 rounded">Download Excel</button>
+      <button onclick="downloadReport('pdf')" class="bg-gray-700 text-white p-4 rounded">Download PDF</button>
+    </div>
+    <div id="content" class="mt-6 bg-white p-4 rounded shadow"></div>
+  </div>
+
+  <script>
+    let apiUrl = localStorage.getItem("apiUrl") || document.getElementById("api-url").value;
+    let token = "";
+
+    function saveApiUrl() {
+      apiUrl = document.getElementById("api-url").value;
+      localStorage.setItem("apiUrl", apiUrl);
+      alert("API URL saved: " + apiUrl);
+    }
+
+    async function login() {
+      const email = document.getElementById("login-email").value;
+      const password = document.getElementById("login-password").value;
+      const formData = new URLSearchParams();
+      formData.append("username", email);
+      formData.append("password", password);
+
+      const res = await fetch(apiUrl + "/auth/login", {
+        method: "POST",
+        body: formData,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        token = data.access_token;
+        document.getElementById("login-section").classList.add("hidden");
+        document.getElementById("dashboard").classList.remove("hidden");
+      } else {
+        alert("Login failed");
+      }
+    }
+
+    async function loadIncidents() {
+      const res = await fetch(apiUrl + "/incidents", {
+        headers: { Authorization: "Bearer " + token },
+      });
+      const data = await res.json();
+      document.getElementById("content").innerHTML =
+        "<h3 class='font-bold mb-2'>Incidents</h3>" +
+        data.map(i => `<div class="border-b py-2">${i.title} - ${i.description}</div>`).join("");
+    }
+
+    async function loadActions() {
+      const res = await fetch(apiUrl + "/actions", {
+        headers: { Authorization: "Bearer " + token },
+      });
+      const data = await res.json();
+      document.getElementById("content").innerHTML =
+        "<h3 class='font-bold mb-2'>Actions</h3>" +
+        data.map(a => `<div class="border-b py-2">${a.description} [${a.status}]</div>`).join("");
+    }
+
+    async function downloadReport(type) {
+      const res = await fetch(apiUrl + "/reports/" + type, {
+        headers: { Authorization: "Bearer " + token },
+      });
+      const blob = await res.blob();
+      const link = document.createElement("a");
+      link.href = window.URL.createObjectURL(blob);
+      link.download = "report." + type;
+      link.click();
+    }
+  </script>
+</body>
+</html>
